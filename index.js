@@ -1,38 +1,48 @@
 const express = require('express');
 const axios = require('axios');
 const app = express();
+
 app.use(express.json());
 
-app.get('/', (req, res) => res.send('👍 Bot is live'));
+// Root test
+app.get('/', (req, res) => {
+  res.send('👍 Bot is live');
+});
 
+// Webhook for WhatsApp or any message platform
 app.post('/webhook', async (req, res) => {
   const message = req.body?.message || 'Hello';
+
   try {
-    const reply = await getClaudeReply(message);
+    const reply = await getAIReply(message);
     res.json({ reply });
   } catch (err) {
-    console.error(err);
-    res.status(500).send('Claude error');
+    console.error('Error:', err.response?.data || err.message);
+    res.status(500).send('Something went wrong.');
   }
 });
 
-async function getClaudeReply(msg) {
+// DeepSeek AI function
+async function getAIReply(msg) {
   const response = await axios.post(
-    'https://api.anthropic.com/v1/messages',
+    'https://api.deepseek.com/v1/chat/completions',
     {
-      model: 'claude-3-haiku-20240307',
+      model: 'deepseek-chat',
       messages: [{ role: 'user', content: msg }],
       max_tokens: 100
     },
     {
       headers: {
-        'x-api-key': process.env.CLAUDE_API_KEY,
-        'anthropic-version': '2023-06-01'
+        Authorization: `Bearer ${process.env.DEEPSEEK_API_KEY}`
       }
     }
   );
-  return response.data.content[0].text;
+
+  return response.data.choices[0].message.content;
 }
 
+// Start server
 const PORT = process.env.PORT || 10000;
-app.listen(PORT, () => console.log(`Bot running on ${PORT}`));
+app.listen(PORT, () => {
+  console.log(`🟢 Bot is running on port ${PORT}`);
+});
