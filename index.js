@@ -9,7 +9,7 @@ const VERIFY_TOKEN = process.env.VERIFY_TOKEN || "VELDT";
 
 app.use(bodyParser.json());
 
-// ✅ Webhook verification (Meta calls this first)
+// ✅ Meta Webhook Verification Route
 app.get('/webhook', (req, res) => {
   const mode = req.query['hub.mode'];
   const token = req.query['hub.verify_token'];
@@ -23,7 +23,7 @@ app.get('/webhook', (req, res) => {
   }
 });
 
-// ✅ WhatsApp sends messages to this POST route
+// ✅ Incoming WhatsApp Message Handler
 app.post('/webhook', async (req, res) => {
   try {
     const msg = req.body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0]?.text?.body;
@@ -42,19 +42,20 @@ app.post('/webhook', async (req, res) => {
   res.sendStatus(200);
 });
 
-// ✅ Talk to OpenRouter (MythoMax, Hermes, etc.)
+// ✅ AI Function - uses OpenRouter's free model
 async function getAIReply(msg) {
   const response = await axios.post(
     'https://openrouter.ai/api/v1/chat/completions',
     {
-      model: 'openchat/openchat-3.5', // ✅ you can swap models here
+      model: 'openchat/openchat-3.5', // ✅ confirmed free
       messages: [{ role: 'user', content: msg }],
-      max_tokens: 200
+      max_tokens: 100
     },
     {
       headers: {
-        Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
-        'HTTP-Referer': 'https://yourdomain.com', // optional
+        'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
+        'Content-Type': 'application/json',
+        'HTTP-Referer': 'https://whatsappaibot-4spb.onrender.com',
         'X-Title': 'WhatsApp Bot'
       }
     }
@@ -63,7 +64,7 @@ async function getAIReply(msg) {
   return response.data.choices[0].message.content;
 }
 
-// ✅ Start the server
+// ✅ Start Express server
 app.listen(PORT, () => {
   console.log(`🟢 Server running on port ${PORT}`);
 });
