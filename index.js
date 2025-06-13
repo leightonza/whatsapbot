@@ -2,9 +2,11 @@ require('dotenv').config();
 const express = require('express');
 const axios = require('axios');
 const app = express();
+const PORT = process.env.PORT || 10000;
 
 app.use(express.json());
 
+// 🌍 Webhook Verification (Meta calls this when setting up)
 app.get('/webhook', (req, res) => {
   const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
 
@@ -13,70 +15,65 @@ app.get('/webhook', (req, res) => {
   const challenge = req.query['hub.challenge'];
 
   if (mode === 'subscribe' && token === VERIFY_TOKEN) {
+    console.log('✅ Webhook verified!');
     res.status(200).send(challenge);
   } else {
+    console.log('❌ Webhook verification failed');
     res.sendStatus(403);
   }
 });
 
+// 🤖 Receive WhatsApp messages
 app.post('/webhook', async (req, res) => {
-  const body = req.body;
+  try {
+    const entry = req.body.entry?.[0];
+    const message = entry?.changes?.[0]?.value?.messages?.[0];
 
-  if (body.object) {
-    const entry = body.entry?.[0];
-    const changes = entry?.changes?.[0];
-    const message = changes?.value?.messages?.[0];
-
-    if (message && message.type === 'text') {
+    if (message) {
       const from = message.from;
-      const msgText = message.text.body;
+      const msgText = message.text?.body || "No message";
 
-      const aiReply = await getClaudeReply(msgText);
-      await sendMessage(from, aiReply);
+      const aiReply = await getDeepseekReply(msgText);
+
+      await axios.post(`https://graph.facebook.com/v18.0/${process.env.PHONE_NUMBER_ID}/messages`, {
+        messaging_product: "whatsapp",
+        to: from,
+        text: { body: aiReply }
+      }, {
+        headers: {
+          Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      console.log(`📨 Replied to ${from}`);
     }
 
     res.sendStatus(200);
-  } else {
-    res.sendStatus(404);
+  } catch (err) {
+    console.error('❌ Error handling message:', err.message);
+    res.sendStatus(500);
   }
 });
 
-async function getClaudeReply(msg) {
-  const response = await axios.post(
+// 💬 DeepSeek AI function
+async function getDeepseekReply(msg) {
+  const res = await axios.post(
     'https://api.deepseek.com/v1/chat/completions',
     {
       model: 'deepseek-chat',
       messages: [{ role: 'user', content: msg }],
-      max_tokens: 100,
+      max_tokens: 100
     },
     {
       headers: {
-        Authorization: `Bearer ${process.env.DEEPSEEK_API_KEY}`,
-      },
+        Authorization: `Bearer ${process.env.DEEPSEEK_API_KEY}`
+      }
     }
   );
-
-  return response.data.choices[0].message.content;
+  return res.data.choices[0].message.content;
 }
 
-async function sendMessage(recipient, text) {
-  await axios.post(
-    `https://graph.facebook.com/v19.0/${process.env.PHONE_NUMBER_ID}/messages`,
-    {
-      messaging_product: 'whatsapp',
-      to: recipient,
-      text: { body: text },
-    },
-    {
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
-      },
-    }
-  );
-}
-
-const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
-  console.log('Server running on port', PORT);
+  console.log(`🚀 Server running on port ${PORT}`);
 });
