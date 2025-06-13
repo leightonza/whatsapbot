@@ -47,7 +47,7 @@ async function getAIReply(msg) {
   const response = await axios.post(
     'https://openrouter.ai/api/v1/chat/completions',
     {
-      model: 'gryphe/mythomax-l2-13b', // ✅ you can swap models here
+      model: 'openchat/openchat-3.5', // ✅ you can swap models here
       messages: [{ role: 'user', content: msg }],
       max_tokens: 200
     },
