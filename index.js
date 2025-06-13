@@ -44,24 +44,32 @@ app.post('/webhook', async (req, res) => {
 
 // ✅ AI Function - uses OpenRouter's free model
 async function getAIReply(msg) {
-  const response = await axios.post(
-    'https://openrouter.ai/api/v1/chat/completions',
-    {
-      model: 'openchat/openchat-3.5', // ✅ confirmed free
-      messages: [{ role: 'user', content: msg }],
-      max_tokens: 100
-    },
-    {
-      headers: {
-        'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://whatsappaibot-4spb.onrender.com',
-        'X-Title': 'WhatsApp Bot'
+  try {
+    const response = await axios.post(
+      'https://openrouter.ai/api/v1/chat/completions',
+      {
+        model: 'openchat/openchat-3.5',
+        messages: [
+          { role: 'system', content: 'You are a helpful WhatsApp assistant.' },
+          { role: 'user', content: msg }
+        ],
+        max_tokens: 100
+      },
+      {
+        headers: {
+          'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
+          'Content-Type': 'application/json',
+          'HTTP-Referer': 'https://whatsappaibot-4spb.onrender.com',
+          'X-Title': 'WhatsApp Bot'
+        }
       }
-    }
-  );
+    );
 
-  return response.data.choices[0].message.content;
+    return response.data.choices[0].message.content;
+  } catch (err) {
+    console.error("🔥 OpenRouter error:", err.response?.data || err.message);
+    return "Sorry, I couldn't process that.";
+  }
 }
 
 // ✅ Start Express server
