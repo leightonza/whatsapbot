@@ -1,64 +1,45 @@
 require('dotenv').config();
 const express = require('express');
+const bodyParser = require('body-parser');
 const axios = require('axios');
+
 const app = express();
-const PORT = process.env.PORT || 10000;
+const PORT = process.env.PORT || 3000;
+const VERIFY_TOKEN = "VELDT"; // the same one you use on Meta
 
-app.use(express.json());
+app.use(bodyParser.json());
 
-// 🌍 Webhook Verification (Meta calls this when setting up)
+// ✅ Webhook verification
 app.get('/webhook', (req, res) => {
-  const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
-
   const mode = req.query['hub.mode'];
   const token = req.query['hub.verify_token'];
   const challenge = req.query['hub.challenge'];
 
-  if (mode === 'subscribe' && token === VERIFY_TOKEN) {
-    console.log('✅ Webhook verified!');
+  if (mode && token === VERIFY_TOKEN) {
     res.status(200).send(challenge);
   } else {
-    console.log('❌ Webhook verification failed');
     res.sendStatus(403);
   }
 });
 
-// 🤖 Receive WhatsApp messages
+// ✅ Message handling
 app.post('/webhook', async (req, res) => {
+  const message = req.body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0]?.text?.body;
+  if (!message) return res.sendStatus(200);
+
   try {
-    const entry = req.body.entry?.[0];
-    const message = entry?.changes?.[0]?.value?.messages?.[0];
-
-    if (message) {
-      const from = message.from;
-      const msgText = message.text?.body || "No message";
-
-      const aiReply = await getDeepseekReply(msgText);
-
-      await axios.post(`https://graph.facebook.com/v18.0/${process.env.PHONE_NUMBER_ID}/messages`, {
-        messaging_product: "whatsapp",
-        to: from,
-        text: { body: aiReply }
-      }, {
-        headers: {
-          Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      console.log(`📨 Replied to ${from}`);
-    }
-
-    res.sendStatus(200);
+    const reply = await getClaudeReply(message);
+    console.log("AI reply:", reply);
   } catch (err) {
-    console.error('❌ Error handling message:', err.message);
-    res.sendStatus(500);
+    console.error("DeepSeek error", err.message);
   }
+
+  res.sendStatus(200);
 });
 
-// 💬 DeepSeek AI function
-async function getDeepseekReply(msg) {
-  const res = await axios.post(
+// ✅ DeepSeek handler
+async function getClaudeReply(msg) {
+  const response = await axios.post(
     'https://api.deepseek.com/v1/chat/completions',
     {
       model: 'deepseek-chat',
@@ -71,9 +52,9 @@ async function getDeepseekReply(msg) {
       }
     }
   );
-  return res.data.choices[0].message.content;
+  return response.data.choices[0].message.content;
 }
 
 app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
+  console.log(`Server running on port ${PORT}`);
 });
