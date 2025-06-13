@@ -4,57 +4,66 @@ const bodyParser = require('body-parser');
 const axios = require('axios');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
-const VERIFY_TOKEN = "VELDT"; // the same one you use on Meta
+const PORT = process.env.PORT || 10000;
+const VERIFY_TOKEN = process.env.VERIFY_TOKEN || "VELDT";
 
 app.use(bodyParser.json());
 
-// ✅ Webhook verification
+// ✅ Webhook verification (Meta calls this first)
 app.get('/webhook', (req, res) => {
   const mode = req.query['hub.mode'];
   const token = req.query['hub.verify_token'];
   const challenge = req.query['hub.challenge'];
 
   if (mode && token === VERIFY_TOKEN) {
+    console.log("🟢 WEBHOOK VERIFIED");
     res.status(200).send(challenge);
   } else {
-    res.sendStatus(403);
+    res.status(403).send("❌ Invalid verify token");
   }
 });
 
-// ✅ Message handling
+// ✅ WhatsApp sends messages to this POST route
 app.post('/webhook', async (req, res) => {
-  const message = req.body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0]?.text?.body;
-  if (!message) return res.sendStatus(200);
-
   try {
-    const reply = await getClaudeReply(message);
-    console.log("AI reply:", reply);
+    const msg = req.body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0]?.text?.body;
+    const from = req.body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0]?.from;
+
+    console.log("📩 User said:", msg);
+
+    if (msg && from) {
+      const reply = await getAIReply(msg);
+      console.log("🤖 AI reply:", reply);
+    }
   } catch (err) {
-    console.error("DeepSeek error", err.message);
+    console.error("⚠️ Error handling message:", err.message);
   }
 
   res.sendStatus(200);
 });
 
-// ✅ DeepSeek handler
-async function getClaudeReply(msg) {
+// ✅ Talk to OpenRouter (MythoMax, Hermes, etc.)
+async function getAIReply(msg) {
   const response = await axios.post(
-    'https://api.deepseek.com/v1/chat/completions',
+    'https://openrouter.ai/api/v1/chat/completions',
     {
-      model: 'deepseek-chat',
+      model: 'gryphe/mythomax-l2-13b', // ✅ you can swap models here
       messages: [{ role: 'user', content: msg }],
-      max_tokens: 100
+      max_tokens: 200
     },
     {
       headers: {
-        Authorization: `Bearer ${process.env.DEEPSEEK_API_KEY}`
+        Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
+        'HTTP-Referer': 'https://yourdomain.com', // optional
+        'X-Title': 'WhatsApp Bot'
       }
     }
   );
+
   return response.data.choices[0].message.content;
 }
 
+// ✅ Start the server
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`🟢 Server running on port ${PORT}`);
 });
