@@ -42,32 +42,30 @@ app.post('/webhook', async (req, res) => {
   res.sendStatus(200);
 });
 
-// ✅ AI Function - uses OpenRouter's free model
+// ✅ AI Function - uses Groq
 async function getAIReply(msg) {
   try {
     const response = await axios.post(
-      'https://openrouter.ai/api/v1/chat/completions',
+      'https://api.groq.com/openai/v1/chat/completions',
       {
-        model: 'openchat/openchat-3.5',
+        model: "llama3-8b-8192",
         messages: [
-          { role: 'system', content: 'You are a helpful WhatsApp assistant.' },
-          { role: 'user', content: msg }
+          { role: "system", content: "You are a friendly WhatsApp assistant." },
+          { role: "user", content: msg }
         ],
-        max_tokens: 100
+        temperature: 0.7
       },
       {
         headers: {
-          'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
-          'Content-Type': 'application/json',
-          'HTTP-Referer': 'https://whatsappaibot-4spb.onrender.com',
-          'X-Title': 'WhatsApp Bot'
+          "Authorization": `Bearer ${process.env.GROQ_API_KEY}`,
+          "Content-Type": "application/json"
         }
       }
     );
 
     return response.data.choices[0].message.content;
   } catch (err) {
-    console.error("🔥 OpenRouter error:", err.response?.data || err.message);
+    console.error("🔥 Groq error:", err.response?.data || err.message);
     return "Sorry, I couldn't process that.";
   }
 }
