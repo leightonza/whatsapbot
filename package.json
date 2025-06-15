@@ -1,14 +1,16 @@
 {
-  "name": "whatsappaibot",
+  "name": "whatsapp-ai-bot",
   "version": "1.0.0",
-  "description": "WhatsApp AI bot with DeepSeek",
+  "description": "WhatsApp AI bot using Groq and Google Sheets",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
   },
   "dependencies": {
-    "express": "^4.18.2",
-    "axios": "^1.4.0",
-    "dotenv": "^16.0.3"
+    "axios": "^1.6.7",
+    "body-parser": "^1.20.2",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "google-spreadsheet": "^3.3.0"
   }
 }
