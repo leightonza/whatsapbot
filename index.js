@@ -2,18 +2,14 @@ require('dotenv').config();
 const express = require('express');
 const bodyParser = require('body-parser');
 const axios = require('axios');
-const { GoogleSpreadsheet } = require('google-spreadsheet');
 
 const app = express();
 const PORT = process.env.PORT || 10000;
 const VERIFY_TOKEN = process.env.VERIFY_TOKEN || "VELDT";
 
-// 🔓 Spreadsheet setup
-const doc = new GoogleSpreadsheet('YOUR_GOOGLE_SHEET_ID'); // Replace with your sheet ID
-
 app.use(bodyParser.json());
 
-// ✅ Webhook verification for Meta
+// ✅ Meta Webhook Verification
 app.get('/webhook', (req, res) => {
   const mode = req.query['hub.mode'];
   const token = req.query['hub.verify_token'];
@@ -27,7 +23,7 @@ app.get('/webhook', (req, res) => {
   }
 });
 
-// ✅ Handles incoming messages
+// ✅ Incoming WhatsApp message
 app.post('/webhook', async (req, res) => {
   try {
     const msg = req.body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0]?.text?.body;
@@ -38,6 +34,7 @@ app.post('/webhook', async (req, res) => {
     if (msg && from) {
       const reply = await getAIReply(msg);
       console.log("🤖 AI reply:", reply);
+      // Here you can send back the reply using the WhatsApp API if needed
     }
   } catch (err) {
     console.error("⚠️ Error handling message:", err.message);
@@ -46,35 +43,37 @@ app.post('/webhook', async (req, res) => {
   res.sendStatus(200);
 });
 
-// ✅ AI reply using Groq + memory from Google Sheets
-async function loadSheetContent() {
-  await doc.useServiceAccountAuth({
-    client_email: process.env.GOOGLE_SERVICE_EMAIL,
-    private_key: process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n'),
-  });
+// ✅ Web-based test route (for curl or browser)
+app.get('/', async (req, res) => {
+  const msg = req.query.q || 'Hello';
+  console.log("🌍 Received query:", msg);
 
-  await doc.loadInfo();
-  const sheet = doc.sheetsByIndex[0];
-  const rows = await sheet.getRows();
+  try {
+    const reply = await getAIReply(msg);
+    res.send(`<h3>🗣 You said: ${msg}</h3><h4>🤖 Bot replied: ${reply}</h4>`);
+  } catch (err) {
+    console.error("❌ Error in / route:", err.message);
+    res.status(500).send("Error talking to the AI.");
+  }
+});
 
-  let memory = '';
-  rows.forEach(row => {
-    memory += `\n\n${row.Section?.toUpperCase?.() || 'INFO'}:\n${row.Content || ''}`;
-  });
-
-  return memory;
-}
-
+// ✅ AI logic using Groq (LLaMA3)
 async function getAIReply(msg) {
   try {
-    const memory = await loadSheetContent();
-
     const response = await axios.post(
       'https://api.groq.com/openai/v1/chat/completions',
       {
         model: "llama3-8b-8192",
         messages: [
-          { role: "system", content: memory },
+          {
+            role: "system",
+            content: `You are the AI assistant for Veldt Restaurant in Cape Town.
+You know everything about the menu, hours, specials, and bookings.
+Menu highlights: flame-grilled pork ribs, lamb potjie, Jack Black draught.
+Address: 35 Main Road, Hout Bay.
+Hours: Mon/Wed/Thurs 5–9:30pm, Fri–Sun 12–9:30pm.
+Bookings via dineplan.com or call +27 61 911 5690 for large groups (15+).`
+          },
           { role: "user", content: msg }
         ],
         temperature: 0.7
