@@ -9,6 +9,17 @@ const VERIFY_TOKEN = process.env.VERIFY_TOKEN || "VELDT";
 
 app.use(bodyParser.json());
 
+// ✅ Test Route (for browser & curl)
+app.get("/", async (req, res) => {
+  const userMsg = req.query.q;
+  if (!userMsg) {
+    return res.send("No message provided. Use ?q=Your+Message");
+  }
+
+  const reply = await getAIReply(userMsg);
+  res.send(`<h3>🗣 You said: ${userMsg}</h3><h4>🤖 Bot replied: ${reply}</h4>`);
+});
+
 // ✅ Meta Webhook Verification Route
 app.get('/webhook', (req, res) => {
   const mode = req.query['hub.mode'];
@@ -34,6 +45,8 @@ app.post('/webhook', async (req, res) => {
     if (msg && from) {
       const reply = await getAIReply(msg);
       console.log("🤖 AI reply:", reply);
+
+      // You could send a reply via WhatsApp API here if needed
     }
   } catch (err) {
     console.error("⚠️ Error handling message:", err.message);
@@ -42,7 +55,7 @@ app.post('/webhook', async (req, res) => {
   res.sendStatus(200);
 });
 
-// ✅ AI Function - uses Groq
+// ✅ AI Function - powered by Groq
 async function getAIReply(msg) {
   try {
     const response = await axios.post(
